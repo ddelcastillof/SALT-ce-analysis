@@ -1,0 +1,17 @@
+---
+title: "ce-analysis"
+author: "Darwin Del Castillo"
+date: "`r Sys.Date()`"
+format: html
+editor: visual
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r quarto settings}
+knitr::opts_chunk$set(echo = FALSE, comment = "", results = 'asis')
+```
+
+```{r}
+
+```
