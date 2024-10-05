@@ -20,25 +20,25 @@ digraph MarkovModel {
   // Define states
   Healthy       [label = 'Healthy'];
   Hypertension  [label = 'Hypertension'];
-  CVEvent       [label = 'CV Event'];
+  CVD       [label = 'CV Disease'];
   Dead          [label = 'Dead'];
   
   // Edge defaults
   edge [fontname='Helvetica', fontsize=8];
 
   // Define transitions with labels
-  Healthy -> Healthy        [label = 'p_1'];
-  Healthy -> Hypertension   [label = 'p_2'];
-  Healthy -> Dead           [label = 'p_3'];
+  Healthy -> Healthy           [label = 'p_1'];
+  Healthy -> Hypertension      [label = 'p_2'];
+  Healthy -> Dead              [label = 'p_3'];
 
   Hypertension -> Hypertension [label = 'p_4'];
   Hypertension -> Dead         [label = 'p_5'];
-  Hypertension -> CVEvent      [label = 'p_6'];
+  Hypertension -> CVD          [label = 'p_6'];
   
-  CVEvent -> Dead              [label = 'p_7'];
-  CVEvent -> CVEvent           [label = 'p_8'];
+  CVD -> Dead                  [label = 'p_7'];
+  CVD -> CVD                   [label = 'p_8'];
 
-  Dead -> Dead                 [label = '1'];
+  Dead -> Dead                 [label = '1']
 }
 ")
 
