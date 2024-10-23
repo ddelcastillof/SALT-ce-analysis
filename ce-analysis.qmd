@@ -1,17 +1,189 @@
 ---
-title: "ce-analysis"
+title: "Cost-effectiveness analysis of a salt substitute intervention in Northern Peru"
 author: "Darwin Del Castillo"
 date: "`r Sys.Date()`"
-format: html
-editor: visual
+format: pdf
+editor: source
 editor_options:
-  chunk_output_type: inline
+  chunk_output_type: console
 ---
 
 ```{r quarto settings}
-knitr::opts_chunk$set(echo = FALSE, comment = "", results = 'asis')
+#| echo: TRUE
+#| include: FALSE
+knitr::opts_chunk$set(echo = TRUE,
+                      include = FALSE,
+                      warning = FALSE,
+                      comment = "", 
+                      results = 'asis')
 ```
 
-```{r}
+```{r additional settings}
+# setting the number of iterations
+sim_run <- 10000
+# disable scientific notation
+options(scipen = 999999,
+        max.print = 99999999)
+```
+
+```{r loading packages}
+pacman::p_load(tidyverse,
+               haven,
+               heemod,
+               skimr,
+               labelled,
+               data.table,
+               openxlsx,
+               lme4,
+               survival,
+               rigr)
+
+# external functions
+source("functions/Functions.R")
+```
+
+```{r importing datasets}
+raw_long_dta <- read_dta("data-raw/long.dta") |> 
+  as.data.table() |> 
+  mutate(across(where(is.labelled), ~ as_factor(.x, 
+                                                levels = "labels")),
+         across(everything(), ~ {attr(.x, 
+                                      "format.stata") <- NULL
+         .x})) |>
+  mutate(across(everything(), ~`attr<-`(.x, "label", NULL)))
+
+raw_wide_dta <- read_dta("data-raw/wide.dta") |> 
+  as.data.table() |>
+  mutate(across(where(is.labelled), ~ as_factor(.x, 
+                                                levels = "labels")),
+         across(everything(), ~ {attr(.x, 
+                                      "format.stata") <- NULL
+         .x})) |>
+  mutate(across(everything(), ~`attr<-`(.x, "label", NULL)))
+```
+
+```{r exploring databases}
+# database structure
+str(raw_long_dta)
+str(raw_wide_dta)
+
+# database names imported correctly
+names(raw_long_dta)
+names(raw_wide_dta)
+
+# skimming databases
+skim(raw_long_dta)
+skim(raw_wide_dta)
+```
+
+```{r describing data}
+# desenlaces
+## muerte: 35 deaths across all rounds
+table(raw_long_dta$pvivo)
+
+## eventos cv: 79 CV events across all rounds
+table(raw_long_dta$derrame)
+table(raw_long_dta$infarto)
+table(raw_long_dta$insuficiencia)
+table(raw_long_dta$otracor)
+
+## HTA
+table(raw_long_dta$ht)
+table(raw_long_dta$htdx)
+table(raw_long_dta$ht5)
+table(raw_long_dta$htdxtx)
+```
+
+From this line, I am going to replicate the code provided in the main paper of the intervention.
+
+Pendiente: averiguar sobre cual variable se estratifica para obtener los datos del estudio: Candidatas: - htdxtx - htdx - ht5
+
+```{r replicating analysis}
+# modeling a linear mixed model
+## model among individuals with hypertension
+model_crude_sbp <- lmer(sbp ~ intervencion + 
+                              time + 
+                              (1 | codvilla/codhogar/codigo), 
+                              data = raw_long_dta)
+model_crude_dbp <- lmer(dbp ~ intervencion + 
+                              time + 
+                              (1 | codvilla/codhogar/codigo), 
+                              data = raw_long_dta)
+
+summary(model_crude_sbp)
+summary(model_crude_dbp)
+
+
+model_crude_sbp_no <- lmer(sbp ~ intervencion + 
+                              time + 
+                              (1 | codvilla/codhogar/codigo), 
+                              data = raw_long_dta, 
+                              subset = (htdx == "No"))
+
+model_crude_dbp_no <- lmer(dbp ~ intervencion + 
+                              time + 
+                              (1 | codvilla/codhogar/codigo), 
+                              data = raw_long_dta,
+                              subset = (htdx == "No"))
+
+model_crude_sbp_yes <- lmer(sbp ~ intervencion + 
+                              time + 
+                              (1 | codvilla/codhogar/codigo), 
+                              data = raw_long_dta, 
+                              subset = (htdx == "Yes"))
+
+model_crude_dbp_yes <- lmer(dbp ~ intervencion + 
+                              time + 
+                              (1 | codvilla/codhogar/codigo), 
+                              data = raw_long_dta,
+                              subset = (htdx == "Yes"))
+
+summary(model_crude_sbp_yes)
+summary(model_crude_dbp_yes)
+summary(model_crude_sbp_no)
+summary(model_crude_dbp_no)
+
+
+model_adjusted_sbp_no <- lmer(sbp ~ intervencion + 
+                              time + sexo + edad1 + 
+                              bmi + eduacat + xassets +
+                              (1 | codvilla/codhogar/codigo), 
+                              data = raw_long_dta, 
+                              subset = (htdx == "No"))
+
+model_adjusted_dbp_no <- lmer(dbp ~ intervencion + 
+                              time + sexo + edad1 + 
+                              bmi + eduacat + xassets +
+                              (1 | codvilla/codhogar/codigo), 
+                              data = raw_long_dta, 
+                              subset = (htdx == "No"))
+
+model_adjusted_sbp_yes <- lmer(sbp ~ intervencion + 
+                              time + sexo + edad1 + 
+                              bmi + eduacat + xassets +
+                              (1 | codvilla/codhogar/codigo), 
+                              data = raw_long_dta, 
+                              subset = (htdx == "Yes"))
+
+model_adjusted_dbp_yes <- lmer(dbp ~ intervencion + 
+                              time + sexo + edad1 + 
+                              bmi + eduacat + xassets +
+                              (1 | codvilla/codhogar/codigo), 
+                              data = raw_long_dta, 
+                              subset = (htdx == "Yes"))
+
+summary(model_adjusted_sbp_yes)
+summary(model_adjusted_dbp_yes)
+summary(model_adjusted_sbp_no)
+summary(model_adjusted_dbp_no)
+
+## survival
+## crear tiempo en meses (dtime) y evento al momento de censura
+## averiguar fecha de censura de datos para recuperar datos de mortalidad
+
+# nohypertension_baseline <- subset(raw_wide_dta, ht5 == "No")
+# survival_fit <- survfit()
+# cox_model <- coxph(Surv(dtime, ht5) ~ intervencion +
+# frailty(codvilla), data = nohypertension_baseline)
 
 ```
