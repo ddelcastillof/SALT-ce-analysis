@@ -6,3 +6,10 @@ This repository analyzes the economic impact of a salt substitute intervention i
 - haven
 - heemod
 - DiagrammeR
+- skimr
+- labelled
+- data.table
+- openxlsx
+- lme4
+- survival
+- rigr
