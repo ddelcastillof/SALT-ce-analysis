@@ -19,8 +19,9 @@ digraph MarkovModel {
 
   ## Define states
   Healthy           [label = 'Healthy'];
-  Prehypertension  [label = 'Prehypertension'];
-  Hypertension      [label = 'Hypertension']
+  Prehypertension   [label = 'Prehypertension'];
+  Hypertension      [label = 'Hypertension'];
+  CVD               [label = 'CVD'];
   
   ## Edge defaults
   edge [fontname='Helvetica', fontsize=8];
@@ -29,11 +30,17 @@ digraph MarkovModel {
   Healthy -> Healthy           [label = 'p_1'];
   Healthy -> Prehypertension  [label = 'p_2'];
   Healthy -> Hypertension      [label = 'p_3'];
-
-  Prehypertension -> Hypertension             [label = 'p_4'];
-  Prehypertension -> Prehypertension         [label = 'p_5'];
+  Healthy -> CVD               [label = 'p_4'];
   
-  Hypertension -> Hypertension [label = '1']
+
+  Prehypertension -> Hypertension             [label = 'p_5'];
+  Prehypertension -> Prehypertension         [label = 'p_6'];
+  
+  Hypertension -> Hypertension [label = 'p_7'];
+  Hypertension -> CVD          [label = 'p_8'];
+  
+  CVD -> CVD [label = '1']
+  
 }
 ")
 
