@@ -78,14 +78,19 @@ skim(raw_wide_dta)
 
 ```{r describing data}
 # desenlaces
-## muerte: 35 deaths across all rounds
-table(raw_long_dta$pvivo)
+## eventos cv: 75 CV events across all rounds
+raw_long_dta <- raw_long_dta |>
+  mutate(todocvd = factor(todocvd, 
+                          levels = c("No", "Si")),
+         todocvd = ifelse(derrame == "Si" | 
+                          infarto == "Si" | 
+                          insuficiencia == "Si" | 
+                          insurenal == "Si" |
+                          otracor == "Si", "Si", "No"))
 
-## eventos cv: 79 CV events across all rounds
-table(raw_long_dta$derrame)
-table(raw_long_dta$infarto)
-table(raw_long_dta$insuficiencia)
-table(raw_long_dta$otracor)
+tabulation_long_cvd <- raw_long_dta |>
+  group_by(codigovilla, todocvd) |>
+  summarise(count = n(), .groups = "drop")
 
 ## HTA
 table(raw_long_dta$ht)
@@ -185,5 +190,4 @@ summary(model_adjusted_dbp_no)
 # survival_fit <- survfit()
 # cox_model <- coxph(Surv(dtime, ht5) ~ intervencion +
 # frailty(codvilla), data = nohypertension_baseline)
-
 ```
