@@ -1,8 +1,15 @@
+# Basic files
+## RStudio files
 .Rproj.user
 .Rhistory
 .RData
 .Ruserdata
+
+## DS_Store files
 .DS_Store
+
+## .json files
+settings.json
 
 # All the content from the data folder
 data/
