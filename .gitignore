@@ -3,3 +3,10 @@
 .RData
 .Ruserdata
 .DS_Store
+
+# All the content from the data folder
+data/
+data-raw/
+
+# PDF output until it is finished
+ce-analysis.pdf
