@@ -9,4 +9,9 @@ data/
 data-raw/
 
 # PDF output until it is finished
-ce-analysis.pdf
+report/
+
+# All output until it is finished
+output/
+
+/.quarto/

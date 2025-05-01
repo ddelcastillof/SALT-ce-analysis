@@ -135,7 +135,7 @@ print(myGraph)
 graph_svg <- export_svg(myGraph)
 
 rsvg_png(charToRaw(graph_svg),
-         file = "figs/Markov Model Graph.png",
+         file = "output/figs/Markov Model Graph.png",
          width = 2000,
          height = 1600)
 
@@ -197,7 +197,7 @@ print(myGraph_S1)
 graph_svgS1 <- export_svg(myGraph_S1)
 
 rsvg_png(charToRaw(graph_svgS1),
-         file = "figs/Markov Model Graph S1.png",
+         file = "output/figs/Markov Model Graph S1.png",
          width = 2000,
          height = 1000)
 
@@ -256,6 +256,6 @@ graph_svgS2 <- export_svg(myGraph_S2)
 
 
 rsvg_png(charToRaw(graph_svgS2),
-         file = "figs/Markov Model Graph S2.png",
+         file = "output/figs/Markov Model Graph S2.png",
          width = 2000,
          height = 1000)
