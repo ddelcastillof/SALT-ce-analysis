@@ -35,6 +35,7 @@ pacman::p_load(tidyverse,
                data.table,
                openxlsx,
                lme4,
+               nlme,
                survival,
                rigr)
 
@@ -43,6 +44,7 @@ source("functions/Functions.R")
 ```
 
 ```{r importing datasets}
+# raw long data
 raw_long_dta <- read_dta("data-raw/long.dta") |> 
   as.data.table() |> 
   mutate(across(where(is.labelled), ~ as_factor(.x, 
@@ -52,6 +54,7 @@ raw_long_dta <- read_dta("data-raw/long.dta") |>
          .x})) |>
   mutate(across(everything(), ~`attr<-`(.x, "label", NULL)))
 
+# raw wide data
 raw_wide_dta <- read_dta("data-raw/wide.dta") |> 
   as.data.table() |>
   mutate(across(where(is.labelled), ~ as_factor(.x, 
@@ -77,117 +80,35 @@ skim(raw_wide_dta)
 ```
 
 ```{r describing data}
-# desenlaces
-## eventos cv: 75 CV events across all rounds
-raw_long_dta <- raw_long_dta |>
-  mutate(todocvd = factor(todocvd, 
-                          levels = c("No", "Si")),
-         todocvd = ifelse(derrame == "Si" | 
-                          infarto == "Si" | 
-                          insuficiencia == "Si" | 
-                          insurenal == "Si" |
-                          otracor == "Si", "Si", "No"))
-
-tabulation_long_cvd <- raw_long_dta |>
-  group_by(codigovilla, todocvd) |>
-  summarise(count = n(), .groups = "drop")
-
+# desenlaces: variables con x son autorreporte y las que no tienen x son medidas en el estudio
 ## HTA
 table(raw_long_dta$ht)
-table(raw_long_dta$htdx)
-table(raw_long_dta$ht5)
-table(raw_long_dta$htdxtx)
+table(raw_long_dta$htdx) 
+table(raw_long_dta$ht5) 
+table(raw_long_dta$htdxtx) 
+
+## Pre-HTA
+table(raw_long_dta$preht)
+table(raw_long_dta$preht5)
 ```
 
-From this line, I am going to replicate the code provided in the main paper of the intervention.
-
-Pendiente: averiguar sobre cual variable se estratifica para obtener los datos del estudio: Candidatas: - htdxtx - htdx - ht5
+# Calculating parameters from the trial data
 
 ```{r replicating analysis}
-# modeling a linear mixed model
-## model among individuals with hypertension
-model_crude_sbp <- lmer(sbp ~ intervencion + 
-                              time + 
-                              (1 | codvilla/codhogar/codigo), 
-                              data = raw_long_dta)
-model_crude_dbp <- lmer(dbp ~ intervencion + 
-                              time + 
-                              (1 | codvilla/codhogar/codigo), 
-                              data = raw_long_dta)
-
-summary(model_crude_sbp)
-summary(model_crude_dbp)
-
-
-model_crude_sbp_no <- lmer(sbp ~ intervencion + 
-                              time + 
-                              (1 | codvilla/codhogar/codigo), 
-                              data = raw_long_dta, 
-                              subset = (htdx == "No"))
-
-model_crude_dbp_no <- lmer(dbp ~ intervencion + 
-                              time + 
-                              (1 | codvilla/codhogar/codigo), 
-                              data = raw_long_dta,
-                              subset = (htdx == "No"))
-
-model_crude_sbp_yes <- lmer(sbp ~ intervencion + 
-                              time + 
-                              (1 | codvilla/codhogar/codigo), 
-                              data = raw_long_dta, 
-                              subset = (htdx == "Yes"))
-
-model_crude_dbp_yes <- lmer(dbp ~ intervencion + 
-                              time + 
-                              (1 | codvilla/codhogar/codigo), 
-                              data = raw_long_dta,
-                              subset = (htdx == "Yes"))
-
-summary(model_crude_sbp_yes)
-summary(model_crude_dbp_yes)
-summary(model_crude_sbp_no)
-summary(model_crude_dbp_no)
-
-
-model_adjusted_sbp_no <- lmer(sbp ~ intervencion + 
-                              time + sexo + edad1 + 
-                              bmi + eduacat + xassets +
-                              (1 | codvilla/codhogar/codigo), 
-                              data = raw_long_dta, 
-                              subset = (htdx == "No"))
-
-model_adjusted_dbp_no <- lmer(dbp ~ intervencion + 
-                              time + sexo + edad1 + 
-                              bmi + eduacat + xassets +
-                              (1 | codvilla/codhogar/codigo), 
-                              data = raw_long_dta, 
-                              subset = (htdx == "No"))
-
-model_adjusted_sbp_yes <- lmer(sbp ~ intervencion + 
-                              time + sexo + edad1 + 
-                              bmi + eduacat + xassets +
-                              (1 | codvilla/codhogar/codigo), 
-                              data = raw_long_dta, 
-                              subset = (htdx == "Yes"))
-
-model_adjusted_dbp_yes <- lmer(dbp ~ intervencion + 
-                              time + sexo + edad1 + 
-                              bmi + eduacat + xassets +
-                              (1 | codvilla/codhogar/codigo), 
-                              data = raw_long_dta, 
-                              subset = (htdx == "Yes"))
-
-summary(model_adjusted_sbp_yes)
-summary(model_adjusted_dbp_yes)
-summary(model_adjusted_sbp_no)
-summary(model_adjusted_dbp_no)
-
 ## survival
-## crear tiempo en meses (dtime) y evento al momento de censura
-## averiguar fecha de censura de datos para recuperar datos de mortalidad
+### limpieza de fechas
+raw_wide_dta <- raw_wide_dta |>
+  mutate(fecha_inicio = as.Date("2014-08-08"), #fecha de inicio de intervencion: 8 agosto 2014
+         fecha_final = as.Date(f6fechaent, origin = "1970-01-01"), # convertir f6fechaent a Date
+         dtime = as.numeric(fecha_final - fecha_inicio), # calcular tiempo en días
+         dtime = ifelse(dtime < 0, 0, dtime))
 
-# nohypertension_baseline <- subset(raw_wide_dta, ht5 == "No")
-# survival_fit <- survfit()
-# cox_model <- coxph(Surv(dtime, ht5) ~ intervencion +
-# frailty(codvilla), data = nohypertension_baseline)
+nohypertension_baseline <- subset(raw_wide_dta, ht5 == "No")
+# Removing NA from f6ht5
+nohypertension_baseline <- nohypertension_baseline[!is.na(nohypertension_baseline$f6ht5) &                                             !is.na(nohypertension_baseline$dtime), ]
+cox_model <- coxph(Surv(dtime, f6ht5) ~ factor(intervencion) + 
+                     frailty(codigovilla), 
+                     data = nohypertension_baseline,
+                     na.action = na.exclude)
+#### cleaning wide data for survival analysis
 ```
