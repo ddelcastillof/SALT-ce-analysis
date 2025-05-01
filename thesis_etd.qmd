@@ -7,6 +7,9 @@ format:
     papersize: a4
     pdfengine: xelatex
     include-in-header: preamble.tex
+  docx:
+    toc: false
+    reference-doc: thesis.docx
 execute:
   echo: false
   warning: false
