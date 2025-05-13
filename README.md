@@ -13,3 +13,16 @@ This repository analyzes the economic impact of a salt substitute intervention i
 - lme4
 - survival
 - rigr
+
+## To-do list
+### Primary data
+- [ ] Compare dichotomic outcomes with sbp and dbp measurements in each round.
+- [ ] Estimate the effect of the intervention oon the incidence of pre-HTA.
+- [ ] Estimate the effect of the intervention on the incidence of HTA among people with pre-HTA at baseline.
+- [ ] Retrieve better estimates of mortality (prob. using SINADEF access)
+
+### Markov model
+- [ ] Run the model with more flexible setting-up (e.g. rJAGS) 
+- [ ] Run PSA analyses, propagating uncertainty with 10000 iterations
+- [ ] Improve the model capturing other potential states (e.g. pre-HTA)
+- [ ] Capture the independent effect of each CV event (e.g. stroke, MI, etc.)
