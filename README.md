@@ -20,9 +20,13 @@ This repository analyzes the economic impact of a salt substitute intervention i
 - [ ] Estimate the effect of the intervention oon the incidence of pre-HTA.
 - [ ] Estimate the effect of the intervention on the incidence of HTA among people with pre-HTA at baseline.
 - [ ] Retrieve better estimates of mortality (prob. using SINADEF access)
+- [ ] Improve estimates for CVD events. 
+- [ ] Introduce the impact of BMI, SBP, and DBP on the HR estimate.
 
 ### Markov model
 - [ ] Run the model with more flexible setting-up (e.g. rJAGS) 
 - [ ] Run PSA analyses, propagating uncertainty with 10000 iterations
 - [ ] Improve the model capturing other potential states (e.g. pre-HTA)
 - [ ] Capture the independent effect of each CV event (e.g. stroke, MI, etc.)
+- [ ] Capture the effect of the intervention across women and men
+- [ ] Improve the code to consider age initial as discrete.
