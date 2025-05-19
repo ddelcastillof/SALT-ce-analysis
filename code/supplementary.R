@@ -1,5 +1,5 @@
 # ---
-# Supplemental materials
+# Supplementary materials
 # Author: Darwin Del Castillo
 # ---
 
@@ -11,6 +11,41 @@ pacman::p_load(DiagrammeR,
 
 # Creating the main analysis graph
 library(DiagrammeR)
+
+myGraphSimple <- grViz("
+digraph MarkovModel {
+  rankdir=LR;
+
+  ## Set default state style
+  node [shape = circle, style=solid, 
+  fontname='Helvetica', fontsize=8, 
+  width=0.6, height=0.6];
+
+  ## Define states
+  Healthy           [label = 'Healthy'];
+  Hypertension      [label = 'Hypertension'];
+  CVD               [label = 'CV events'];
+  Death             [label = 'Death']
+  
+  ## Edge defaults
+  edge [fontname='Helvetica', fontsize=8];
+
+  ## Define transitions with labels
+  Healthy -> Healthy           [label = 'C'];
+  Healthy -> Hypertension      [label = 'p_1'];
+  Healthy -> Death             [label = 'p_2'];
+
+  Hypertension -> Hypertension [label = 'C'];
+  Hypertension -> CVD          [label = 'p_3'];
+  Hypertension -> Death        [label = 'p_4'];
+  
+  CVD -> Death [label = 'p_5'];
+  CVD -> CVD [label = 'C'];
+
+  
+  Death -> Death [label = '1'];
+}
+")
 
 myGraph <- grViz("
 digraph MarkovModel {
@@ -32,17 +67,18 @@ digraph MarkovModel {
   edge [fontname='Helvetica', fontsize=8];
 
   ## Define transitions with labels
-  Healthy -> Healthy           [label = 'p_1'];
+  Healthy -> Healthy           [label = 'C'];
   Healthy -> Prehypertension   [label = 'p_2'];
   Healthy -> Hypertension      [label = 'p_3'];
   Healthy -> CVD               [label = 'p_4'];
   Healthy -> Death             [label = 'p_5'];
 
-  Prehypertension -> Hypertension             [label = 'p_6'];
-  Prehypertension -> Prehypertension          [label = 'p_7'];
-  Prehypertension -> CVD                      [label = 'p_8'];
+  Prehypertension -> Healthy                  [label = 'p_6'];
+  Prehypertension -> Hypertension             [label = 'p_7'];
+  Prehypertension -> Prehypertension          [label = 'C'];
+  Prehypertension -> CVD                      [label = 'p_9'];
 
-  Hypertension -> Hypertension [label = 'p_9'];
+  Hypertension -> Hypertension [label = 'C'];
   Hypertension -> CVD          [label = 'p_10'];
   Hypertension -> Death        [label = 'p_11'];
   
@@ -129,15 +165,15 @@ digraph MarkovSexSplit {
 }
 ")
 
-print(myGraph)
+print(myGraphSimple)
 
 # Converting the graph into a JPEG file
-graph_svg <- export_svg(myGraph)
+graph_svg <- export_svg(myGraphSimple)
 
 rsvg_png(charToRaw(graph_svg),
-         file = "output/figs/Markov Model Graph.png",
-         width = 2000,
-         height = 1600)
+         file = "output/figs/Simple Markov Model.png",
+         width = 1400,
+         height = 800)
 
 # Creating the sensitivity analyses graphs
 
