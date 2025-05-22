@@ -13,60 +13,6 @@ rate_to_prob <- function(r, per, to) {
   1 - exp(-(r / per) * to)
 }
 
-# ------------------------------------------------------------
-# Function to load the Peru WHO life expectancy table
-# ------------------------------------------------------------
-# Life expectancy from WHO for Peru in 2019
-load_peru_who_life_table <- function() {
-# Life expectancy table for Peru
-  peru_life_table <- data.frame(
-    age_group = c("<1 year", "1-4 years", "5-9 years", "10-14 years", "15-19 years", 
-                  "20-24 years", "25-29 years", "30-34 years", "35-39 years",
-                  "40-44 years", "45-49 years", "50-54 years", "55-59 years",
-                  "60-64 years", "65-69 years", "70-74 years", "75-79 years",
-                  "80-84 years", "85+ years"),
-    both_sexes = c(79.8978, 79.6661, 75.9019, 71.0033, 66.1034, 61.2717, 56.503, 
-                   51.7672, 47.0478, 42.3573, 37.7193, 33.1538, 28.6979, 24.3816, 
-                   20.2588, 16.3779, 12.7774, 9.5738, 6.6763),
-    male = c(78.4557, 78.276, 74.5268, 69.6348, 64.7382, 59.9354, 55.2476,
-             50.6094, 45.98, 41.3695, 36.8012, 32.2972, 27.906, 23.6606,
-             19.6184, 15.8347, 12.3418, 9.2986, 6.5418),
-    female = c(81.3357, 81.0453, 77.2645, 72.359, 67.4556, 62.5952, 57.7503,
-               52.9122, 48.0938, 43.3145, 38.6001, 33.9677, 29.4436, 25.0526,
-               20.8449, 16.8634, 13.1532, 9.7974, 6.7664)
-  )
-  
-  # Create vector to store life expectancy by individual age
-  max_age <- 100 #Maximum age in the trial
-  life_expectancy <- numeric(max_age + 1)
-  
-  # Function to convert age group to numeric range
-  get_age_range <- function(age_group) {
-    if (age_group == "<1 year") {
-      return(list(min = 0, max = 0))
-    } else if (age_group == "85+ years") {
-      return(list(min = 85, max = max_age))
-    } else {
-      # Extract numbers from age group (e.g. "1-4 years" -> min=1, max=4)
-      range_str <- gsub(" years", "", age_group)
-      range_parts <- strsplit(range_str, "-")[[1]]
-      min_age <- as.numeric(range_parts[1])
-      max_age <- as.numeric(range_parts[2])
-      return(list(min = min_age, max = max_age))
-    }
-  }
-  
-  # Fill the life expectancy vector for each individual year of age
-  for (i in seq_len(nrow(peru_life_table))) {
-    age_range <- get_age_range(peru_life_table$age_group[i])
-    for (age in age_range$min:age_range$max) {
-      life_expectancy[age + 1] <- peru_life_table$both_sexes[i]
-    }
-  }
-  
-  return(life_expectancy)
-}
-
 # -----------------------------------------------------------
 # Parameters
 # -----------------------------------------------------------
@@ -80,31 +26,33 @@ dbp_mean <- 72    # Mean DBP from trial # To model the effect of BMI on HTA-HR
 p_1 <- 0.0546     # Healthy to hypertension (control)
 
 # Intervention case scenario
-hr_hta <- 0.45    # Hazard ratio for hypertension with intervention
+hr_hta <- 0.49    # Hazard ratio for hypertension with intervention
 
 # Costs
 cost_healthy <- 0
 cost_hta <- 584
-cost_intervention <- 1.18
+cost_salt <- 1.18
+cost_social <- 53.62
+cost_intervention <- cost_salt + cost_social
 
 # Cycle correction
 cycle_length <- 1  # 1 year
 
-# Disability weights
-d_hta <- 0.02      # DW for hypertension
+# Utility weights
+u_hta <- 0.85      # Mean utility for hypertension (SD ≈ 0.12)
 
 # Discount rate
 discount_rate <- 0.03
 
 # Load Peru WHO life expectancy table
-life_expectancy_table <- load_peru_who_life_table()
+# life_expectancy_table <- load_peru_who_life_table()
 
 # -----------------------------------------------------------
 # Create transition matrices
 # -----------------------------------------------------------
 create_transition_matrix <- function(p_1, hr_hta = 1) {
   # Two‑state model: Healthy (state 1) and Hypertension (state 2)
-  p_1_adj <- 1 - exp(-(p_1 * hr_hta))        # Adjusted probability Healthy → HTA
+  p_1_adj <- 1 - exp(-(p_1 * hr_hta))   # Adjusted probability Healthy → HTA
   matrix(c(
     # From Healthy
     1 - p_1_adj, p_1_adj,
@@ -127,42 +75,43 @@ apply_discount <- function(value, rate, time) {
 # -----------------------------------------------------------
 # Run deterministic model (two-state version)
 # -----------------------------------------------------------
-run_deterministic_model <- function(transition_matrix, costs, disability_weights,
+run_deterministic_model <- function(transition_matrix, costs, utility_weights,
                                     cycles, init_state, is_intervention = FALSE,
                                     discount_rate = 0.03) {
 
-  base_costs <- c(costs$healthy, costs$hta)
   if (is_intervention) {
-    base_costs <- base_costs + c(costs$intervention, costs$intervention)
+    base_costs <- c(costs$intervention_healthy, costs$intervention_hta)
+  } else {
+    base_costs <- c(costs$healthy, costs$hta)
   }
 
-  dw_vector <- c(0, disability_weights$hta)
+  util_vector <- c(1, utility_weights$hta)
 
   state_dist <- matrix(0, nrow = cycles + 1, ncol = 2)
   state_dist[1, ] <- init_state
 
   costs_by_cycle <- numeric(cycles)
-  yld_by_cycle   <- numeric(cycles)
+  qaly_by_cycle   <- numeric(cycles)
 
   for (t in 1:cycles) {
     if (t > 1) state_dist[t, ] <- state_dist[t - 1, ] %*% transition_matrix
 
     cycle_costs <- sum(state_dist[t, ] * base_costs)
-    cycle_yld   <- sum(state_dist[t, ] * dw_vector)
+    cycle_qaly  <- sum(state_dist[t, ] * util_vector)
 
     costs_by_cycle[t] <- cycle_costs / (1 + discount_rate)^(t - 1)
-    yld_by_cycle[t]   <- cycle_yld   / (1 + discount_rate)^(t - 1)
+    qaly_by_cycle[t]  <- cycle_qaly / (1 + discount_rate)^(t - 1)
   }
 
   total_costs <- sum(costs_by_cycle)
-  total_dalys <- sum(yld_by_cycle)  # DALYs = YLD only in two‑state model
+  total_qalys <- sum(qaly_by_cycle)
 
   list(
     state_dist     = state_dist,
     costs_by_cycle = costs_by_cycle,
-    yld_by_cycle   = yld_by_cycle,
+    qaly_by_cycle  = qaly_by_cycle,
     total_costs    = total_costs,
-    total_dalys    = total_dalys
+    total_qalys    = total_qalys
   )
 }
 
@@ -172,11 +121,12 @@ run_deterministic_model <- function(transition_matrix, costs, disability_weights
 costs <- list(
   healthy      = cost_healthy,
   hta          = cost_hta,
-  intervention = cost_intervention
+  intervention_healthy = cost_healthy + cost_intervention,
+  intervention_hta = cost_hta + cost_intervention
 )
 
-disability_weights <- list(
-  hta = d_hta
+utility_weights <- list(
+  hta = u_hta
 )
 
 init_states <- c(1, 0)  # All start in Healthy state
@@ -186,7 +136,7 @@ cycles <- 60  # Lifetime horizon
 control_results <- run_deterministic_model(
   transition_matrix = mat_control,
   costs = costs,
-  disability_weights = disability_weights,
+  utility_weights = utility_weights,
   cycles = cycles,
   init_state = init_states,
   is_intervention = FALSE
@@ -196,7 +146,7 @@ control_results <- run_deterministic_model(
 intervention_results <- run_deterministic_model(
   transition_matrix = mat_intervention,
   costs = costs,
-  disability_weights = disability_weights,
+  utility_weights = utility_weights,
   cycles = cycles,
   init_state = init_states,
   is_intervention = TRUE
@@ -206,19 +156,19 @@ intervention_results <- run_deterministic_model(
 # Calculate incremental cost-effectiveness ratio (ICER)
 # -----------------------------------------------------------
 incremental_cost <- intervention_results$total_costs - control_results$total_costs
-incremental_effect <- control_results$total_dalys - intervention_results$total_dalys
-icer <- incremental_cost / incremental_effect
+incremental_effect <- intervention_results$total_qalys - control_results$total_qalys
+icer <- incremental_cost / incremental_effect      # cost per QALY gained
 
 # -----------------------------------------------------------
 # Summarize results
 # -----------------------------------------------------------
 summary_results <- data.frame(
-  Strategy           = c("Control", "Intervention"),
-  Total_Costs        = c(control_results$total_costs, intervention_results$total_costs),
-  Total_DALYs        = c(control_results$total_dalys, intervention_results$total_dalys),
-  Incremental_Cost   = c(NA, incremental_cost),
+  Strategy         = c("Control", "Intervention"),
+  Total_Costs      = c(control_results$total_costs, intervention_results$total_costs),
+  Total_QALYs      = c(control_results$total_qalys, intervention_results$total_qalys),
+  Incremental_Cost = c(NA, incremental_cost),
   Incremental_Effect = c(NA, incremental_effect),
-  ICER               = c(NA, icer)
+  ICER             = c(NA, icer)
 )
 
 print(summary_results)
@@ -235,16 +185,16 @@ N <- sim_run
 # Function to draw one PSA sample and run the deterministic model
 run_psa_iteration <- function(i) {
   # Sample demographic and clinical parameters
-  age_init_i <- rnorm(1, mean = 43.3, sd = 17.2 / sqrt(2376))
-  bmi_i <- rnorm(1, mean = 27.2, sd = 4.6 / sqrt(2376))
+  age_init_i <- rnorm(1, mean = 43.3, sd = 17.2 / sqrt(2376)) # nolint: object_usage_linter.
+  bmi_i <- rnorm(1, mean = 27.2, sd = 4.6 / sqrt(2376)) # nolint: object_usage_linter.
   sbp_sd <- 17.0 / sqrt(2376)
   sbp_meanlog <- log(113.1) - 0.5 * (sbp_sd / 113.1)^2
   sbp_sdlog <- sqrt(log(1 + (sbp_sd / 113.1)^2))
-  sbp_mean_i <- rlnorm(1, meanlog = sbp_meanlog, sdlog = sbp_sdlog)
+  sbp_mean_i <- rlnorm(1, meanlog = sbp_meanlog, sdlog = sbp_sdlog) # nolint: object_usage_linter.
   dbp_sd <- 10.1 / sqrt(2376)
   dbp_meanlog <- log(72) - 0.5 * (dbp_sd / 72)^2
   dbp_sdlog <- sqrt(log(1 + (dbp_sd / 72)^2))
-  dbp_mean_i <- rlnorm(1, meanlog = dbp_meanlog, sdlog = dbp_sdlog)
+  dbp_mean_i <- rlnorm(1, meanlog = dbp_meanlog, sdlog = dbp_sdlog) # nolint: object_usage_linter.
 
   # Hazard ratio for hypertension
   hr_sdlog <- (log(0.66) - log(0.31)) / 3.92
@@ -256,11 +206,13 @@ run_psa_iteration <- function(i) {
   costs_i <- list(
     healthy      = cost_healthy,
     hta          = cost_hta_i,
-    intervention = cost_intervention
+    intervention_healthy = cost_healthy + cost_intervention,
+    intervention_hta = cost_hta_i + cost_intervention
   )
-  # Disability weights
-  d_hta_i <- rbeta(1, 2, 98)
-  dws_i <- list(hta = d_hta_i)
+  # Utility weights
+  # Beta(6.67, 1.18) gives mean 0.85 and sd ≈ 0.12
+  u_hta_i <- rbeta(1, shape1 = 6.67, shape2 = 1.18)
+  utils_i <- list(hta = u_hta_i)
 
   # Create transition matrices with sampled hr
   mat_control_i      <- create_transition_matrix(p_1, hr_hta = 1)
@@ -270,7 +222,7 @@ run_psa_iteration <- function(i) {
   res_control_i <- run_deterministic_model(
     transition_matrix = mat_control_i,
     costs = costs_i,
-    disability_weights = dws_i,
+    utility_weights = utils_i,
     cycles = cycles,
     init_state = init_states,
     is_intervention = FALSE
@@ -278,7 +230,7 @@ run_psa_iteration <- function(i) {
   res_int_i <- run_deterministic_model(
     transition_matrix = mat_intervention_i,
     costs = costs_i,
-    disability_weights = dws_i,
+    utility_weights = utils_i,
     cycles = cycles,
     init_state = init_states,
     is_intervention = TRUE
@@ -286,7 +238,7 @@ run_psa_iteration <- function(i) {
 
   # Compute incremental cost and effect
   inc_cost <- res_int_i$total_costs - res_control_i$total_costs
-  inc_eff <- res_control_i$total_dalys - res_int_i$total_dalys
+  inc_eff <- res_int_i$total_qalys - res_control_i$total_qalys
 
   return(c(inc_cost = inc_cost, inc_eff = inc_eff))
 }
@@ -307,6 +259,9 @@ cat("PSA ICER mean:", round(icer_mean, 2), "95% CI [", round(icer_ci[1], 2), ","
 # Graphs for PSA
 # -----------------------------------------------------------
 
+# Peruvian QALY threshold: S/25,007 per AVAC converted to 2024 USD
+# Average 2024 USD/PEN exchange rate = 3.7538
+wtp_threshold <- 25007 / 3.7538  # ≈ 6662 USD per QALY
 # Cost-effectiveness plane
 ce_plane_df <- psa_df
 # Calculate centroid
@@ -315,17 +270,25 @@ centroid_df <- data.frame(
   inc_cost = mean(ce_plane_df$inc_cost, na.rm = TRUE)
 )
 gg_ce_plane <- ggplot(ce_plane_df, aes(x = inc_eff, y = inc_cost)) +
-  geom_point(color = "#0072B2", alpha = 0.4) +
-  stat_ellipse(type = "norm", level = 0.95, color = "#999999", linetype = "dashed", size = 1) +
-  geom_point(data = centroid_df, aes(x = inc_eff, y = inc_cost), color = "#D55E00", size = 4, shape = 8) +
+  geom_point(color = "#b20000a3", alpha = 0.4) +
+  geom_abline(intercept = 0, slope = wtp_threshold, color = "#0d009e", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = 0, color = "black", size = 0.6) +
+  geom_hline(yintercept = 0, color = "black", size = 0.6) +
+  stat_ellipse(type = "norm", level = 0.95, color = "#999999", linetype = "solid", size = 1) +
+  geom_point(data = centroid_df, aes(x = inc_eff, y = inc_cost), color = "#999999", size = 4, shape = 8) +
   labs(
-    x = "Incremental DALYs Averted",
+    x = "Incremental QALYs Gained",
     y = "Incremental Costs",
-    title = "Cost-effectiveness Plane"
   ) +
   theme_minimal() +
   theme(plot.title = element_text(hjust = 0.5))
 print(gg_ce_plane)
+
+ggsave(gg_ce_plane,
+filename = "Cost effectiveness plane.jpeg",
+width = 20, height = 40, units = "cm",
+dpi = 800,
+path = "output/figs")
 
 # Cost-effectiveness acceptability curve (CEAC)
 wtp_vals <- seq(0, 10000, by = 100)
@@ -376,6 +339,7 @@ gg_evpi <- ggplot(evpi_df, aes(x = wtp, y = evpi)) +
     y     = "EVPI",
     title = "Expected Value of Perfect Information"
   ) +
-  theme_minimal()
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
 
 print(gg_evpi)
