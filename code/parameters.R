@@ -42,31 +42,25 @@ print(round(ci, 6))         # per person‑year
 print(round(ci_100k, 1))    # per 100 000 person‑years
 
 # ----------------------------------------------------------
-# Composite CV event disability weight (moderate severity)
+# Composite CV event disability weight (mean of stroke and AMI)
 # ----------------------------------------------------------
 
 library(truncnorm)
 
-## GBD-2021 DW inputs (moderate, chronic phase)
+## GBD-2021 DW inputs
 
 dw <- data.frame(
-  condition = c("Stroke_mod", "IHD_angina_mod", "HF_mod"),
-  mean  = c(0.0701, 0.0795, 0.0717),
-  low95 = c(0.0464, 0.0519, 0.0466),
-  hi95  = c(0.0993, 0.1129, 0.1031)
+  condition = c("Stroke_mild", "Stroke_mod", "Stroke_Severe", "AMI"),
+  mean  = c(0.019, 0.07, 0.552, 0.432),
+  low95 = c(0.01, 0.046, 0.376, 0.288),
+  hi95  = c(0.032, 0.099, 0.706, 0.579)
 )
 
 ### derive SD from 95 % UI  (approx - assumes ±1.96 SD either side)
 dw$sd <- (dw$hi95 - dw$low95) / (2 * 1.96)
 
-### Peruvian weights
-w_raw <- c(Stroke_mod = 0.22,
-           IHD_angina_mod = 0.38,
-           HF_mod = 0.25)
-w <- w_raw / sum(w_raw)   # rescale to sum = 1
-
 ### Monte-Carlo propagation
-set.seed(123)
+set.seed(965006311)
 n_draw <- 1e5
 draws <- sapply(1:nrow(dw), function(i) { # nolint
   rtruncnorm(n_draw, a = 0, b = 1,
@@ -74,14 +68,13 @@ draws <- sapply(1:nrow(dw), function(i) { # nolint
              sd   = dw$sd[i])
 })
 colnames(draws) <- dw$condition
-cv_comp_draw <- draws %*% w
 
 ### mean & variance of composite draws
-mu_comp  <- mean(cv_comp_draw)
-var_comp <- var(cv_comp_draw)
+mu_comp  <- mean(draws)
+var_comp <- var(draws)
 
 ### 95 % UI
-ui_comp  <- quantile(cv_comp_draw, c(0.025, 0.975))
+ui_comp  <- quantile(draws, c(0.025, 0.975))
 
 
 ### Fit Beta(α,β) by method of moments
@@ -89,11 +82,37 @@ alpha <- mu_comp * ((mu_comp * (1 - mu_comp) / var_comp) - 1)
 beta  <- (1 - mu_comp) * ((mu_comp * (1 - mu_comp) / var_comp) - 1)
 
 ### Output
+
 list(
-  Composite_DW_mean = mu_comp,
-  Composite_DW_95UI = ui_comp,
+  DW_mean = mu_comp,
+  DW_95UI = ui_comp,
   Beta_alpha = alpha,
   Beta_beta  = beta
+)
+
+# --------------------------------------------------------------------------
+# Beta distribution parameters for average disability weight
+# --------------------------------------------------------------------------
+
+# Calculate average DW and its approximate CI from the GBD inputs
+mean_dw   <- mean(dw$mean)
+low95_dw  <- mean(dw$low95)
+hi95_dw   <- mean(dw$hi95)
+
+# Derive standard deviation from the 95% UI (assumes ±1.96 SD)
+sd_dw     <- (hi95_dw - low95_dw) / (2 * 1.96)
+var_dw    <- sd_dw^2
+
+# Fit Beta(α, β) by method of moments for the average DW
+alpha_dw  <- mean_dw * ((mean_dw * (1 - mean_dw) / var_dw) - 1)
+beta_dw   <- (1 - mean_dw) * ((mean_dw * (1 - mean_dw) / var_dw) - 1)
+
+# Print or return the parameters
+list(
+  Avg_DW_mean  = mean_dw,
+  Avg_DW_SD    = sd_dw,
+  Beta_alpha   = alpha_dw,
+  Beta_beta    = beta_dw
 )
 
 # --------------------------------------------------------------------------

@@ -55,5 +55,25 @@ load_peru_who_life_table <- function() {
     }
   }
   
-  return(life_expectancy)
+  # Convert numeric vector into data frame with age and life expectancy
+  life_expectancy_df <- data.frame(
+    age = 0:max_age,
+    ex  = life_expectancy,
+    stringsAsFactors = FALSE
+  )
+  return(life_expectancy_df)
 }
+
+# ------------------------------------------------------------
+# Function to convert rate to probability
+# ------------------------------------------------------------
+
+rate_to_prob <- function(r, per, to) {
+  1 - exp(-(r / per) * to)
+}
+
+# ------------------------------------------------------------
+# Penalization functions
+# ------------------------------------------------------------
+
+# TBD

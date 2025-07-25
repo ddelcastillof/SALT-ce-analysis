@@ -33,16 +33,14 @@ digraph MarkovModel {
   ## Define transitions with labels
   Healthy -> Healthy           [label = 'C'];
   Healthy -> Hypertension      [label = 'p_1'];
-  Healthy -> Death             [label = 'p_2'];
 
   Hypertension -> Hypertension [label = 'C'];
-  Hypertension -> CVD          [label = 'p_3'];
-  Hypertension -> Death        [label = 'p_4'];
+  Hypertension -> CVD          [label = 'p_2'];
   
-  CVD -> Death [label = 'p_5'];
+  CVD -> Death [label = 'p_3'];
   CVD -> CVD [label = 'C'];
 
-  
+  Healthy -> Death [label = 'p_bm'];
   Death -> Death [label = '1'];
 }
 ")
